@@ -6,17 +6,17 @@ on:
   workflow_dispatch:
 
 env:
-  BUSYBOX_VERSION: "1.38.0"
+  BUSYBOX_VERSION: "1.37.0"
   GLIBC_VERSION: "2.43"
-  OPENRC_VERSION: "0.63"
-  CURL_VERSION: "8.20.0"
-  GIT_VERSION: "2.54.0"
-  NANO_VERSION: "9.0"
+  OPENRC_VERSION: "0.60"
+  CURL_VERSION: "8.12.1"
+  GIT_VERSION: "2.49.0"
+  NANO_VERSION: "8.4"
   WGET_VERSION: "1.25.0"
-  ZLIB_VERSION: "1.3.2"
-  OPENSSL_VERSION: "3.6.2"
-  PCRE2_VERSION: "10.46"
-  EXPAT_VERSION: "2.8.1"
+  ZLIB_VERSION: "1.3.1"
+  OPENSSL_VERSION: "3.5.0"
+  PCRE2_VERSION: "10.45"
+  EXPAT_VERSION: "2.7.1"
 
 jobs:
   build:
@@ -40,17 +40,17 @@ jobs:
       - name: Download Sources
         working-directory: ${{ github.workspace }}/sources
         run: |
-          wget -q https://busybox.net/downloads/busybox-${BUSYBOX_VERSION}.tar.bz2
-          wget -q https://ftp.gnu.org/gnu/glibc/glibc-${GLIBC_VERSION}.tar.xz
-          wget -q https://github.com/OpenRC/openrc/archive/${OPENRC_VERSION}.tar.gz -O openrc-${OPENRC_VERSION}.tar.gz
-          wget -q https://curl.se/download/curl-${CURL_VERSION}.tar.xz
-          wget -q https://www.kernel.org/pub/software/scm/git/git-${GIT_VERSION}.tar.xz
-          wget -q https://www.nano-editor.org/dist/v9/nano-${NANO_VERSION}.tar.xz
-          wget -q https://ftp.gnu.org/gnu/wget/wget-${WGET_VERSION}.tar.gz
-          wget -q https://zlib.net/zlib-${ZLIB_VERSION}.tar.xz
-          wget -q https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz
-          wget -q https://github.com/PCRE2Project/pcre2/releases/download/pcre2-${PCRE2_VERSION}/pcre2-${PCRE2_VERSION}.tar.gz
-          wget -q https://github.com/libexpat/libexpat/releases/download/R_${EXPAT_VERSION//./_}/expat-${EXPAT_VERSION}.tar.xz
+          wget -q https://busybox.net/downloads/busybox-${{ env.BUSYBOX_VERSION }}.tar.bz2
+          wget -q https://ftp.gnu.org/gnu/glibc/glibc-${{ env.GLIBC_VERSION }}.tar.xz
+          wget -q https://github.com/OpenRC/openrc/archive/${{ env.OPENRC_VERSION }}.tar.gz -O openrc-${{ env.OPENRC_VERSION }}.tar.gz
+          wget -q https://curl.se/download/curl-${{ env.CURL_VERSION }}.tar.xz
+          wget -q https://www.kernel.org/pub/software/scm/git/git-${{ env.GIT_VERSION }}.tar.xz
+          wget -q https://www.nano-editor.org/dist/v8/nano-${{ env.NANO_VERSION }}.tar.xz
+          wget -q https://ftp.gnu.org/gnu/wget/wget-${{ env.WGET_VERSION }}.tar.gz
+          wget -q https://zlib.net/zlib-${{ env.ZLIB_VERSION }}.tar.xz
+          wget -q https://www.openssl.org/source/openssl-${{ env.OPENSSL_VERSION }}.tar.gz
+          wget -q https://github.com/PCRE2Project/pcre2/releases/download/pcre2-${{ env.PCRE2_VERSION }}/pcre2-${{ env.PCRE2_VERSION }}.tar.gz
+          wget -q https://github.com/libexpat/libexpat/releases/download/R_${{ env.EXPAT_VERSION }}/expat-${{ env.EXPAT_VERSION }}.tar.xz
 
       - name: Extract Sources
         working-directory: ${{ github.workspace }}/sources
@@ -60,14 +60,13 @@ jobs:
           done
 
       - name: Build Linux Headers for glibc
-        working-directory: ${{ github.workspace }}/build
         run: |
-          mkdir -p linux-headers
-          cp -r /usr/include/linux /usr/include/asm* /usr/include/asm-generic linux-headers/ 2>/dev/null || true
+          mkdir -p ${{ github.workspace }}/build/linux-headers
+          cp -r /usr/include/linux /usr/include/asm* /usr/include/asm-generic ${{ github.workspace }}/build/linux-headers/ 2>/dev/null || true
 
       - name: Build glibc
-        working-directory: ${{ github.workspace }}/build/glibc-${GLIBC_VERSION}
         run: |
+          cd ${{ github.workspace }}/build/glibc-${{ env.GLIBC_VERSION }}
           mkdir -p build && cd build
           ../configure \
             --prefix=/usr \
@@ -85,18 +84,18 @@ jobs:
           make install DESTDIR=${{ github.workspace }}/rootfs
 
       - name: Build Busybox
-        working-directory: ${{ github.workspace }}/build/busybox-${BUSYBOX_VERSION}
         run: |
+          cd ${{ github.workspace }}/build/busybox-${{ env.BUSYBOX_VERSION }}
           make defconfig
           sed -i 's/# CONFIG_STATIC is not set/CONFIG_STATIC=n/' .config
-          sed -i 's/CONFIG_SYSROOT=.*/CONFIG_SYSROOT="${{ github.workspace }}\/rootfs"/' .config
+          sed -i 's|CONFIG_SYSROOT=.*|CONFIG_SYSROOT="${{ github.workspace }}/rootfs"|' .config
           sed -i 's/# CONFIG_FEATURE_MOUNT_HELPERS is not set/CONFIG_FEATURE_MOUNT_HELPERS=y/' .config
           make -j$(nproc) CFLAGS="-O2 -s"
           make CONFIG_PREFIX=${{ github.workspace }}/rootfs install
 
       - name: Build OpenRC
-        working-directory: ${{ github.workspace }}/build/openrc-${OPENRC_VERSION}
         run: |
+          cd ${{ github.workspace }}/build/openrc-${{ env.OPENRC_VERSION }}
           meson setup build \
             -Dprefix=/usr \
             -Dsysconfdir=/etc \
@@ -110,36 +109,36 @@ jobs:
           DESTDIR=${{ github.workspace }}/rootfs meson install -C build
 
       - name: Build zlib
-        working-directory: ${{ github.workspace }}/build/zlib-${ZLIB_VERSION}
         run: |
+          cd ${{ github.workspace }}/build/zlib-${{ env.ZLIB_VERSION }}
           ./configure --prefix=/usr
           make -j$(nproc)
           make install DESTDIR=${{ github.workspace }}/rootfs
 
       - name: Build OpenSSL
-        working-directory: ${{ github.workspace }}/build/openssl-${OPENSSL_VERSION}
         run: |
+          cd ${{ github.workspace }}/build/openssl-${{ env.OPENSSL_VERSION }}
           ./config --prefix=/usr --openssldir=/etc/ssl shared zlib
           make -j$(nproc)
           make install DESTDIR=${{ github.workspace }}/rootfs
 
       - name: Build Expat
-        working-directory: ${{ github.workspace }}/build/expat-${EXPAT_VERSION}
         run: |
+          cd ${{ github.workspace }}/build/expat-${{ env.EXPAT_VERSION }}
           ./configure --prefix=/usr --disable-static
           make -j$(nproc)
           make install DESTDIR=${{ github.workspace }}/rootfs
 
       - name: Build PCRE2
-        working-directory: ${{ github.workspace }}/build/pcre2-${PCRE2_VERSION}
         run: |
+          cd ${{ github.workspace }}/build/pcre2-${{ env.PCRE2_VERSION }}
           ./configure --prefix=/usr --disable-static --enable-jit
           make -j$(nproc)
           make install DESTDIR=${{ github.workspace }}/rootfs
 
       - name: Build curl
-        working-directory: ${{ github.workspace }}/build/curl-${CURL_VERSION}
         run: |
+          cd ${{ github.workspace }}/build/curl-${{ env.CURL_VERSION }}
           ./configure --prefix=/usr \
             --with-openssl \
             --disable-static \
@@ -149,8 +148,8 @@ jobs:
           make install DESTDIR=${{ github.workspace }}/rootfs
 
       - name: Build wget
-        working-directory: ${{ github.workspace }}/build/wget-${WGET_VERSION}
         run: |
+          cd ${{ github.workspace }}/build/wget-${{ env.WGET_VERSION }}
           ./configure --prefix=/usr \
             --with-ssl=openssl \
             --disable-nls \
@@ -160,8 +159,8 @@ jobs:
           make install DESTDIR=${{ github.workspace }}/rootfs
 
       - name: Build nano
-        working-directory: ${{ github.workspace }}/build/nano-${NANO_VERSION}
         run: |
+          cd ${{ github.workspace }}/build/nano-${{ env.NANO_VERSION }}
           ./configure --prefix=/usr \
             --disable-nls \
             --disable-utf8 \
@@ -172,8 +171,8 @@ jobs:
           make install DESTDIR=${{ github.workspace }}/rootfs
 
       - name: Build git
-        working-directory: ${{ github.workspace }}/build/git-${GIT_VERSION}
         run: |
+          cd ${{ github.workspace }}/build/git-${{ env.GIT_VERSION }}
           make configure
           ./configure --prefix=/usr \
             --with-openssl \
@@ -190,8 +189,9 @@ jobs:
           make install DESTDIR=${{ github.workspace }}/rootfs NO_PERL=1 NO_PYTHON=1 NO_TCLTK=1
 
       - name: Setup Rootfs Structure
-        working-directory: ${{ github.workspace }}/rootfs
         run: |
+          cd ${{ github.workspace }}/rootfs
+          
           mkdir -p dev proc sys tmp run var/log var/run var/lock \
                    etc/init.d etc/rc.d etc/local.d root home \
                    usr/bin usr/sbin usr/lib lib64 boot mnt media
@@ -270,8 +270,9 @@ jobs:
           EOF
 
       - name: Strip and Cleanup
-        working-directory: ${{ github.workspace }}/rootfs
         run: |
+          cd ${{ github.workspace }}/rootfs
+          
           find . -type f \( -name "*.so*" -o -executable \) -exec strip --strip-debug {} + 2>/dev/null || true
           find . -type f -name "*.a" -delete 2>/dev/null || true
 
@@ -295,16 +296,15 @@ jobs:
           rm -rf lib_keep lib64_keep
 
       - name: Verify Size
-        working-directory: ${{ github.workspace }}
         run: |
           echo "=== Rootfs Size ==="
-          du -sh rootfs
+          du -sh ${{ github.workspace }}/rootfs
           echo "=== Top 20 Largest ==="
-          du -sh rootfs/* 2>/dev/null | sort -rh | head -20
+          du -sh ${{ github.workspace }}/rootfs/* 2>/dev/null | sort -rh | head -20
 
       - name: Create 1GB Disk Image
-        working-directory: ${{ github.workspace }}
         run: |
+          cd ${{ github.workspace }}
           truncate -s 1G disk.img
           mkfs.ext4 -L rootfs -F disk.img
 
@@ -319,8 +319,8 @@ jobs:
           ls -lh disk.img.xz
 
       - name: Create Rootfs Archive
-        working-directory: ${{ github.workspace }}
         run: |
+          cd ${{ github.workspace }}
           tar -cJf rootfs.tar.xz -C rootfs .
           ls -lh rootfs.tar.xz
 
@@ -331,4 +331,5 @@ jobs:
           path: |
             disk.img.xz
             rootfs.tar.xz
+          
           
